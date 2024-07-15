@@ -12,36 +12,48 @@ const generateToken = (id) => {
 const registerUser = async (req, res) => {
   const { username, email, password } = req.body;
 
+  console.log('Request body:', req.body);
+
   const userExists = await User.findOne({ email });
 
   if (userExists) {
     return res.status(400).json({ message: 'User already exists' });
   }
 
-  const user = await User.create({ username, email, password });
+  try {
+    const user = await User.create({ username, email, password });
+    console.log('User created:', user);
 
-  if (user) {
-    res.status(201).json({
-      _id: user._id,
-      username: user.username,
-      email: user.email,
-      token: generateToken(user._id),
-    });
-  } else {
-    res.status(400).json({ message: 'Invalid user data' });
+    if (user) {
+      const token = generateToken(user._id);
+      console.log('Generated token:', token);
+      res.status(201).json({
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        token: token,
+      });
+    } else {
+      res.status(400).json({ message: 'Invalid user data' });
+    }
+  } catch (error) {
+    console.error('Error creating user:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
 const authUser = async (req, res) => {
   const { email, password } = req.body;
 
+  console.log('Request body:', req.body);
+
   const user = await User.findOne({ email });
 
   if (user && (await user.matchPassword(password))) {
     try {
-      console.log("User ID:", user._id.toString());
-      console.log("Action:", 'login');
-      console.log("Details:", `User logged in at ${new Date().toISOString()}`);
+      console.log('User ID:', user._id.toString());
+      console.log('Action:', 'login');
+      console.log('Details:', `User logged in at ${new Date().toISOString()}`);
       
       const logEntry = new Log({
         user: user._id.toString(),
@@ -53,11 +65,14 @@ const authUser = async (req, res) => {
       console.error('Log creation failed:', err);
     }
 
+    const token = generateToken(user._id);
+    console.log('Generated token:', token);
+
     res.json({
       _id: user._id,
       username: user.username,
       email: user.email,
-      token: generateToken(user._id),
+      token: token,
     });
   } else {
     res.status(401).json({ message: 'Invalid email or password' });
@@ -69,9 +84,10 @@ const logoutUser = async (req, res) => {
     if (!req.user) {
       return res.status(401).json({ message: 'User not authenticated' });
     }
-    console.log("User ID:", req.user._id.toString());
-    console.log("Action:", 'logout');
-    console.log("Details:", `User logged out at ${new Date().toISOString()}`);
+
+    console.log('User ID:', req.user._id.toString());
+    console.log('Action:', 'logout');
+    console.log('Details:', `User logged out at ${new Date().toISOString()}`);
     
     const logEntry = new Log({
       user: req.user._id.toString(),
